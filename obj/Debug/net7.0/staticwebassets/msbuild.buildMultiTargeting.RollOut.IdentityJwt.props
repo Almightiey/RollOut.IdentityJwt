@@ -1,0 +1,3 @@
+﻿<Project>
+  <Import Project="..\build\RollOut.IdentityJwt.props" />
+</Project>
