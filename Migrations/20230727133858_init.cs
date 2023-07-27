@@ -6,7 +6,7 @@ using Microsoft.EntityFrameworkCore.Migrations;
 namespace RollOut.IdentityJwt.Migrations
 {
     /// <inheritdoc />
-    public partial class Initial : Migration
+    public partial class init : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
@@ -23,7 +23,10 @@ namespace RollOut.IdentityJwt.Migrations
                     Phone = table.Column<string>(type: "text", nullable: false),
                     Avatar = table.Column<string>(type: "text", nullable: false),
                     IsSuperuser = table.Column<bool>(type: "boolean", nullable: false),
-                    IsStaff = table.Column<bool>(type: "boolean", nullable: false)
+                    IsStaff = table.Column<bool>(type: "boolean", nullable: false),
+                    RefreshToken = table.Column<string>(type: "text", nullable: false),
+                    TokenCreated = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
+                    TokenExpires = table.Column<DateTime>(type: "timestamp with time zone", nullable: false)
                 },
                 constraints: table =>
                 {

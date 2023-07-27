@@ -28,6 +28,8 @@ builder.Services.AddDbContext<IDbContext, AuthDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("DeafaultConnection"));
 });
 
+
+
 builder.Services.AddAutoMapper(typeof(Program).Assembly);
 
 builder.Services.AddAuthentication().AddJwtBearer(options =>
@@ -42,6 +44,20 @@ builder.Services.AddAuthentication().AddJwtBearer(options =>
                 builder.Configuration.GetSection("AppSettings:Token").Value!)),
     };
 });
+
+using (var scope = builder.Services.BuildServiceProvider().CreateScope()) // invoke method of Db initialization
+{
+    var serviceProvider = scope.ServiceProvider;
+    try
+    {
+        var context = serviceProvider.GetRequiredService<AuthDbContext>(); // for accessing dependencies
+        context.Database.EnsureCreated(); // initialize database
+    }
+    catch
+    {
+        throw new Exception("Init database failed");
+    }
+}
 
 var app = builder.Build();
 

@@ -6,6 +6,7 @@ using Microsoft.IdentityModel.Tokens;
 using RollOut.IdentityJwt.Models;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
+using System.Security.Cryptography;
 using System.Text;
 
 [ApiController]
@@ -15,6 +16,7 @@ public class AuthController : ControllerBase
     private readonly IDbContext _dbContext;
     private readonly IMapper _mapper;
     private readonly IConfiguration _config;
+
     public AuthController(IDbContext dbContext, IMapper mapper, IConfiguration config)
     {
         _dbContext = dbContext;
@@ -35,7 +37,7 @@ public class AuthController : ControllerBase
         var username = User?.Identity?.Name;
         var roleClaims = User?.FindAll(ClaimTypes.Role);
 
-        var roles = roleClaims?.Select(c=>c.Value).ToList();
+        var roles = roleClaims?.Select(c => c.Value).ToList();
         return Ok(new { username, roles });
     }
 
@@ -65,10 +67,61 @@ public class AuthController : ControllerBase
 
         string token = CreateToken(user);
 
+        var refreshToken = GenerateRefreshToken();
+
+        await SetRefreshToken(refreshToken, user, cancellationToken);
+
         return Ok(token);
     }
 
+    [HttpPost]
+    public async Task<ActionResult<string>> RefreshToken(CancellationToken cancellationToken)
+    {
+        var refreshToken = Request.Cookies["refreshToken"];
 
+        var user = await _dbContext.Users.FirstOrDefaultAsync(user => user.RefreshToken == refreshToken);
+        if (user == null)
+            return BadRequest("Invalid Refresh Token.");
+
+        if (user.TokenExpires < DateTime.UtcNow)
+            return Unauthorized("Token Expired.");
+
+        string token = CreateToken(user);
+        var newRefreshToken = GenerateRefreshToken();
+
+        await SetRefreshToken(newRefreshToken, user, cancellationToken);
+
+        return Ok(token);
+    }
+
+    private RefreshToken GenerateRefreshToken()
+    {
+        var refreshToken = new RefreshToken
+        {
+            Token = Convert.ToBase64String(RandomNumberGenerator.GetBytes(64)),
+            Expires = DateTime.UtcNow.AddDays(7)
+        };
+
+        return refreshToken;
+    }
+
+    private async Task<User> SetRefreshToken(RefreshToken newToken, User user, CancellationToken cancellationToken)
+    {
+        var cookieOptions = new CookieOptions
+        {
+            HttpOnly = true,
+            Expires = newToken.Expires
+        };
+        Response.Cookies.Append("refreshToken", newToken.Token, cookieOptions);
+
+        user.RefreshToken = newToken.Token;
+        user.TokenCreated = newToken.CreatedTime;
+        user.TokenExpires = newToken.Expires;
+
+        await _dbContext.SaveChangesAsync(cancellationToken);
+
+        return user;
+    }
 
     private string CreateToken(User user)
     {
@@ -86,7 +139,7 @@ public class AuthController : ControllerBase
 
         var token = new JwtSecurityToken(
                 claims: claims,
-                expires: DateTime.Now.AddDays(1), //TODO: edit expires
+                expires: DateTime.UtcNow.AddHours(1), //TODO: edit expires
                 signingCredentials: cred
             );
 
