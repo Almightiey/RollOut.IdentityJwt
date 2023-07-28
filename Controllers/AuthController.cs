@@ -146,6 +146,6 @@ public class AuthController : ControllerBase
 
         var jwt = new JwtSecurityTokenHandler().WriteToken(token);
 
-        return "bearer " + jwt;
+        return jwt;
     }
 }
